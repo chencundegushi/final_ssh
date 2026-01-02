@@ -90,7 +90,20 @@ class SSHConfigProvider extends ChangeNotifier {
 
   Future<void> disconnect(String configId) async {
     _connectionStatus[configId] = ConnectionStatus.disconnected;
-    notifyListeners();
+    // 使用 WidgetsBinding.instance.addPostFrameCallback 来避免在widget树锁定时调用notifyListeners
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_disposed) {
+        notifyListeners();
+      }
+    });
+  }
+
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   SSHConfig createNewConfig({

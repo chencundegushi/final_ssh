@@ -37,6 +37,8 @@ dependencies:
   dartssh2: ^2.9.2
   uuid: ^4.4.0
   file_picker: ^8.0.0
+  sqflite: ^2.3.0
+  path: ^1.8.3
 
 dev_dependencies:
   flutter_test:

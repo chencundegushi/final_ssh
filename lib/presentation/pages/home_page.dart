@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/ssh_config_provider.dart';
 import '../widgets/ssh_config_card.dart';
 import 'config_edit_page.dart';
+import '../../services/ssh_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,6 +27,13 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Final SSH'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            onPressed: _disconnectAll,
+            icon: const Icon(Icons.power_off),
+            tooltip: '断开所有连接',
+          ),
+        ],
       ),
       body: Consumer<SSHConfigProvider>(
         builder: (context, provider, child) {
@@ -119,5 +127,23 @@ class _HomePageState extends State<HomePage> {
 
   void _connectToServer(config) {
     Navigator.pushNamed(context, '/terminal', arguments: config);
+  }
+
+  Future<void> _disconnectAll() async {
+    final provider = context.read<SSHConfigProvider>();
+    
+    // 获取所有连接的配置ID并断开
+    for (final config in provider.configs) {
+      if (SSHService.isConnected(config.id)) {
+        await SSHService.disconnect(config.id);
+        await provider.disconnect(config.id);
+      }
+    }
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已断开所有连接')),
+      );
+    }
   }
 }

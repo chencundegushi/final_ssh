@@ -30,7 +30,10 @@ class FinalSSHApp extends StatelessWidget {
             case '/terminal':
               final config = settings.arguments as SSHConfig;
               return MaterialPageRoute(
-                builder: (context) => TerminalPage(config: config),
+                builder: (context) => TerminalPage(
+                  configId: config.id,
+                  configName: config.name,
+                ),
               );
             default:
               return null;
