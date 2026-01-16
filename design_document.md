@@ -219,15 +219,24 @@ abstract class CommonCommandRepository {
 ### 5.1 SSH服务
 ```dart
 class SSHService {
-  static final Map<String, SSHSession> _sessions = {};
+  static final Map<String, SSHClient> _clients = {};
+  static final Map<String, StreamController<String>> _outputControllers = {};
+  static final Map<String, StreamSubscription> _subscriptions = {};
   
-  Future<SSHSession> connect(SSHConfig config);
+  Future<bool> connect(SSHConfig config);
   Future<void> disconnect(String configId);
   Future<String> executeCommand(String configId, String command);
-  Stream<String> getOutputStream(String configId);
+  Future<void> cancelCommand(String configId);  // 停止持续输出命令
+  Stream<String> getOutputStream(String configId);  // 实时流式输出
   bool isConnected(String configId);
 }
 ```
+
+**关键特性**：
+- 使用 `listen()` 方法实时接收 SSH 输出流
+- 支持持续输出命令（kubectl logs -f、tail -f）
+- 通过 StreamController 实时推送数据给 UI
+- 提供 cancelCommand 方法终止持续输出
 
 ### 5.2 加密服务
 ```dart
@@ -246,13 +255,23 @@ class EncryptionService {
 ### 5.4 命令管理服务
 ```dart
 class CommandService {
-  Future<List<CommonCommand>> getCommonCommands();
+  Future<List<CommonCommand>> getAllCommands();
   Future<void> importCommandsFromFile();
-  Future<void> addCommand(String name, String command, String category);
+  Future<void> addCommand(CommonCommand command);
   Future<void> updateCommandUsage(String commandId);
   Future<List<CommonCommand>> searchCommands(String query);
+  
+  // 默认命令功能
+  List<CommonCommand> getDefaultCommands();  // 获取默认命令列表
+  Future<void> initializeDefaultCommands();  // 初始化默认命令
 }
 ```
+
+**默认命令库**：
+- 系统监控：top、df、free
+- Kubernetes：kubectl get pods、kubectl logs -f
+- Docker：docker ps、docker logs -f
+- 日志查看：tail -f、grep
 ```dart
 class FileService {
   Future<String> importPrivateKey();
