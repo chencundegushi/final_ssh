@@ -9,6 +9,7 @@ import 'encryption_service.dart';
 class SSHService {
   static final Map<String, SSHClient> _clients = {};
   static final Map<String, StreamController<String>> _outputControllers = {};
+  static final Map<String, StreamSubscription> _subscriptions = {};
 
   static Future<bool> connect(SSHConfig config) async {
     try {
@@ -136,6 +137,8 @@ class SSHService {
   }
 
   static Future<void> disconnect(String configId) async {
+    await cancelCommand(configId);
+    
     final client = _clients[configId];
     if (client != null) {
       client.close();
@@ -149,19 +152,27 @@ class SSHService {
     }
   }
 
+  static Future<void> cancelCommand(String configId) async {
+    final subscription = _subscriptions[configId];
+    if (subscription != null) {
+      await subscription.cancel();
+      _subscriptions.remove(configId);
+    }
+  }
+
   static Future<String> executeCommand(String configId, String command) async {
     final client = _clients[configId];
     if (client == null) {
       throw Exception('Not connected');
     }
 
+    await cancelCommand(configId);
+
     try {
       debugPrint('原始命令: $command');
       
-      // 尝试多种方式加载别名
       String wrappedCommand;
       if (command.startsWith('dt ')) {
-        // 对于dt命令，尝试多种加载方式
         wrappedCommand = '''bash -c "
 source ~/.bashrc 2>/dev/null || true
 source ~/.bash_profile 2>/dev/null || true  
@@ -176,43 +187,51 @@ $command
       debugPrint('包装后命令: $wrappedCommand');
       
       final session = await client.execute(wrappedCommand);
+      final completer = Completer<String>();
+      final outputBuffer = StringBuffer();
       
-      // 同时获取stdout和stderr
-      final stdoutBytes = await session.stdout.toList().then((list) => 
-          list.expand((x) => x).toList());
-      final stderrBytes = await session.stderr.toList().then((list) => 
-          list.expand((x) => x).toList());
+      // 监听 stdout
+      final stdoutSub = session.stdout.listen(
+        (data) {
+          try {
+            final text = utf8.decode(data);
+            outputBuffer.write(text);
+            _outputControllers[configId]?.add(text);
+          } catch (e) {
+            final text = latin1.decode(data);
+            outputBuffer.write(text);
+            _outputControllers[configId]?.add(text);
+          }
+        },
+        onDone: () {
+          debugPrint('stdout 流结束');
+        },
+      );
       
-      // 安全的UTF-8解码
-      String stdout = '';
-      String stderr = '';
+      // 监听 stderr
+      final stderrSub = session.stderr.listen(
+        (data) {
+          try {
+            final text = 'STDERR: ${utf8.decode(data)}';
+            outputBuffer.write('\n$text');
+            _outputControllers[configId]?.add(text);
+          } catch (e) {
+            final text = 'STDERR: ${latin1.decode(data)}';
+            outputBuffer.write('\n$text');
+            _outputControllers[configId]?.add(text);
+          }
+        },
+        onDone: () {
+          debugPrint('stderr 流结束');
+          if (!completer.isCompleted) {
+            completer.complete(outputBuffer.toString());
+          }
+        },
+      );
       
-      try {
-        stdout = utf8.decode(stdoutBytes);
-      } catch (e) {
-        debugPrint('stdout UTF-8解码失败: $e');
-        stdout = latin1.decode(stdoutBytes);
-      }
+      _subscriptions[configId] = stdoutSub;
       
-      try {
-        stderr = utf8.decode(stderrBytes);
-      } catch (e) {
-        debugPrint('stderr UTF-8解码失败: $e');
-        stderr = latin1.decode(stderrBytes);
-      }
-      
-      debugPrint('stdout长度: ${stdout.length}');
-      debugPrint('stderr长度: ${stderr.length}');
-      debugPrint('stdout内容: $stdout');
-      debugPrint('stderr内容: $stderr');
-      
-      String output = stdout;
-      if (stderr.isNotEmpty) {
-        output += '\nSTDERR: $stderr';
-      }
-      
-      _outputControllers[configId]?.add(output);
-      return output;
+      return completer.future;
     } catch (e) {
       debugPrint('命令执行失败: $e');
       final error = 'Error: $e';

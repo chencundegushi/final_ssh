@@ -4,8 +4,16 @@ import 'presentation/providers/ssh_config_provider.dart';
 import 'presentation/pages/home_page.dart';
 import 'presentation/pages/terminal_page.dart';
 import 'data/models/ssh_config.dart';
+import 'services/command_service.dart';
+import 'data/repositories/command_repository.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // 初始化默认命令
+  final commandService = CommandService(CommandRepositoryImpl());
+  await commandService.initializeDefaultCommands();
+  
   runApp(const FinalSSHApp());
 }
 

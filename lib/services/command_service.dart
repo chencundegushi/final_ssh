@@ -112,4 +112,84 @@ class CommandService {
     commands.sort((a, b) => b.usageCount.compareTo(a.usageCount));
     return commands.take(limit).toList();
   }
+
+  List<CommonCommand> getDefaultCommands() {
+    final now = DateTime.now();
+    return [
+      CommonCommand(
+        id: 'default_top',
+        name: '系统进程监控',
+        command: 'top -n 1',
+        description: '查看系统进程和资源使用情况',
+        category: '系统监控',
+        createdAt: now,
+      ),
+      CommonCommand(
+        id: 'default_df',
+        name: '磁盘使用情况',
+        command: 'df -h',
+        description: '查看磁盘空间使用情况',
+        category: '系统监控',
+        createdAt: now,
+      ),
+      CommonCommand(
+        id: 'default_free',
+        name: '内存使用情况',
+        command: 'free -h',
+        description: '查看内存使用情况',
+        category: '系统监控',
+        createdAt: now,
+      ),
+      CommonCommand(
+        id: 'default_k8s_pods',
+        name: '查看所有Pod',
+        command: 'kubectl get pods -A',
+        description: '查看所有命名空间的Pod',
+        category: 'Kubernetes',
+        createdAt: now,
+      ),
+      CommonCommand(
+        id: 'default_k8s_logs',
+        name: '查看Pod日志',
+        command: 'kubectl logs -f --tail 200 ',
+        description: '实时查看Pod日志（需补充Pod名称）',
+        category: 'Kubernetes',
+        createdAt: now,
+      ),
+      CommonCommand(
+        id: 'default_docker_ps',
+        name: '查看运行容器',
+        command: 'docker ps',
+        description: '查看正在运行的容器',
+        category: 'Docker',
+        createdAt: now,
+      ),
+      CommonCommand(
+        id: 'default_docker_logs',
+        name: '查看容器日志',
+        command: 'docker logs -f --tail 200 ',
+        description: '实时查看容器日志（需补充容器ID）',
+        category: 'Docker',
+        createdAt: now,
+      ),
+      CommonCommand(
+        id: 'default_tail',
+        name: '实时查看日志',
+        command: 'tail -f ',
+        description: '实时查看文件内容（需补充文件路径）',
+        category: '日志查看',
+        createdAt: now,
+      ),
+    ];
+  }
+
+  Future<void> initializeDefaultCommands() async {
+    final existingCommands = await _repository.getAllCommands();
+    if (existingCommands.isEmpty) {
+      final defaultCommands = getDefaultCommands();
+      for (final command in defaultCommands) {
+        await _repository.saveCommand(command);
+      }
+    }
+  }
 }

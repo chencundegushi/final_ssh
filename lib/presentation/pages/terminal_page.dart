@@ -173,12 +173,28 @@ class _TerminalPageState extends State<TerminalPage> {
                   onPressed: () => _executeCommand(_commandController.text),
                   child: const Text('发送'),
                 ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _stopCommand,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('停止'),
+                ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _stopCommand() async {
+    await SSHService.cancelCommand(widget.configId);
+    setState(() {
+      _output += '\n[命令已停止]\n';
+    });
   }
 
   Future<void> _executeCommand(String command) async {
